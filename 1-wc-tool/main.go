@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
+	"unicode"
 )
 
 // Flags
@@ -87,19 +87,20 @@ func countLines(fileName string) int {
 
 // countWords counts the number of words in a file.
 func countWords(fileName string) int {
-	// NOTE: there are a few edge cases that are not handled here
+	processingWord := false
 	return CountEntity(fileName, func(buffer []byte) int {
-		line := strings.Replace(string(buffer), "\n", " ", -1)
-		parts := strings.Replace(line, "\t", " ", -1)
-		parts = strings.Replace(parts, "\r", " ", -1)
-		words := strings.Split(parts, " ")
-		counter := 0
-		for i := range words {
-			if len(words[i]) > 0 {
-				counter++
+		count := 0
+		for i := 0; i < len(buffer); i++ {
+			if unicode.IsSpace(rune(buffer[i])) {
+				if processingWord {
+					count++
+				}
+				processingWord = false
+			} else {
+				processingWord = true
 			}
 		}
-		return counter
+		return count
 	})
 }
 
