@@ -1,12 +1,9 @@
 # Write Your Own wc Tool
-<hr>
 
 ## Description
 The challenge was to use build your own wc tool. The tool should be able to take in a file or stdin and output the number of lines, words, and characters in the file or stdin.
-<hr>
 
 ## Usage
-<hr>
 
 Steps to build the binary and execute it -
 ```
@@ -18,7 +15,6 @@ cat <filename> | go run ./main.go -c
 ```
 
 ## Flags
-<hr>
 
 | Flag | Description | Default |
 | --- | --- | --- |
