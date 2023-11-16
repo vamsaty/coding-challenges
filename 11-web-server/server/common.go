@@ -15,7 +15,14 @@ type MyHttpHandler func(writer ResponseWriter, request *Request)
 
 /* ---------------- START : Common Handlers ---------------- */
 var (
-	notFoundResponse = NewResponseBuilder().StatusCode(404).Phrase("Not Found").Build()
+	notFoundResponse = func() *Response {
+		return NewResponseBuilder().StatusCode(404).Phrase("Not Found").
+			H("Content-Type", "text/html").Body([]byte("the file doesn't exist")).Build()
+	}
+	internalServerErrorResponse = func() *Response {
+		return NewResponseBuilder().StatusCode(500).Phrase("Internal Server Error").
+			H("Content-Type", "text/html").Body([]byte("internal server error")).Build()
+	}
 )
 
 func Push(writer ResponseWriter, builder *ResponseBuilder) {
@@ -31,7 +38,7 @@ func PushResponse(writer ResponseWriter, response *Response) {
 // HandlerNotFound is the default handler if no handler exists
 // for the requested URL and Method.
 func HandlerNotFound(writer ResponseWriter, _ *Request) {
-	PushResponse(writer, notFoundResponse)
+	PushResponse(writer, notFoundResponse())
 }
 
 // FetchWebPage reads the file from the local file system and sends it in the response body.
@@ -43,7 +50,7 @@ func FetchWebPage(writer ResponseWriter, request *Request) {
 	file, err := os.OpenFile(location, os.O_RDONLY, 0644)
 	if err != nil {
 		fmt.Println("failed to open file", err)
-		PushResponse(writer, notFoundResponse)
+		PushResponse(writer, notFoundResponse())
 		return
 	}
 	defer file.Close()
@@ -52,6 +59,7 @@ func FetchWebPage(writer ResponseWriter, request *Request) {
 	data, err := io.ReadAll(file)
 	if err != nil {
 		fmt.Println("failed to read file", err)
+		PushResponse(writer, internalServerErrorResponse())
 		return
 	}
 

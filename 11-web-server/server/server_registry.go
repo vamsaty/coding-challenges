@@ -25,7 +25,9 @@ func (registry *Registry) Register(method, path string, Handler MyHttpHandler) {
 }
 
 func (registry *Registry) GetHandler(method, path string) MyHttpHandler {
-	// match prefix of store
+	// NOTE: match prefix of store. If there are paths starting with the same
+	// prefix, the first one is returned. if "/" is registered and "/api" is
+	// requested, "/" is returned. This can lead to only "/" being returned
 	for pathKey, handler := range registry.store[method] {
 		if strings.HasPrefix(path, pathKey) {
 			return handler

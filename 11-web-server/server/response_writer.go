@@ -1,7 +1,9 @@
 package server
 
 import (
+	"fmt"
 	"net"
+	"time"
 )
 
 /* ---------------- ResponseWriter ---------------- */
@@ -23,7 +25,10 @@ func NewResponseWriter(conn net.Conn) *SimpleResponseWriter {
 }
 
 // Write is just a wrapper around net.Conn.Write.
-func (srw *SimpleResponseWriter) Write(data *Response) error {
-	_, err := srw.Conn.Write(data.Serialize())
+func (srw *SimpleResponseWriter) Write(data *Response) (err error) {
+	fmt.Println("SimpleResponseWriter.Write", data)
+	err = srw.Conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+	fmt.Println("ERR", err)
+	_, err = srw.Conn.Write(data.Serialize())
 	return err
 }

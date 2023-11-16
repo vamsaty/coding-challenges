@@ -59,7 +59,7 @@ func (server *SimpleServerImpl) Register(method, path string, Handler MyHttpHand
 // StartServer starts the HTTP server after initialization
 func (server *SimpleServerImpl) StartServer() {
 	server.Init()
-	server.Logger.Info("server started")
+	server.Logger.Info("server started", zap.String("address", server.HttpServerConfig.String()))
 	for {
 		conn, err := server.Listener.AcceptTCP()
 		if err != nil {
@@ -72,8 +72,8 @@ func (server *SimpleServerImpl) StartServer() {
 
 // Init initializes the HTTP server.
 func (server *SimpleServerImpl) Init() {
-	server.Logger.Info("starting server")
 	server.Once.Do(func() {
+		server.Logger.Info("initializing server")
 		listener, err := net.Listen("tcp", server.HttpServerConfig.String())
 		if err != nil {
 			server.Logger.Fatal("failed to start server", zap.Error(err))
@@ -98,17 +98,15 @@ func (server *SimpleServerImpl) handleConnection(conn *net.TCPConn) {
 	reader := NewRequestParser(conn)
 	writer := NewResponseWriter(conn)
 	for {
-		server.Logger.Info("parsing request", connId)
 		if err = reader.Parse(); err != nil {
 			if err == io.EOF {
-				server.Logger.Info("connection closed by client", connId)
+				server.Logger.Warn("connection closed by client", connId)
 				return
 			}
 			server.Logger.Error("failed to parse request", zap.Error(err))
 			continue
 		}
 		req := reader.GetRequest()
-		server.Logger.Info("request parsed", connId, zap.String("method", req.Method), zap.String("path", req.Path))
 		RequestHandler := server.Registry.GetHandler(req.Method, req.Path)
 		RequestHandler(writer, reader.Request)
 	}
