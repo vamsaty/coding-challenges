@@ -1,23 +1,21 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"unicode"
 )
 
 // Flags
 var (
-	//inputFlag = flag.String("", "stdin", "Input type")
-	//byteFlag  = flag.String("c", "no_init", "count the number of bytes in a file")
-	//lineFlag  = flag.String("l", "no_init", "count the number of lines in a file")
-	//wordFlag  = flag.String("w", "no_init", "count the number of words in a file")
-	inputFlag = flag.Bool("", false, "Input type")
-	byteFlag  = flag.Bool("c", false, "count the number of bytes in a file")
-	lineFlag  = flag.Bool("l", false, "count the number of lines in a file")
-	wordFlag  = flag.Bool("w", false, "count the number of words in a file")
+	byteFlag = flag.Bool("c", false, "count bytes")
+	lineFlag = flag.Bool("l", false, "count lines")
+	wordFlag = flag.Bool("w", false, "count words")
+	charFlag = flag.Bool("m", false, "count characters")
 )
 
 // PanicOnError panics if the error is not nil.
@@ -27,79 +25,58 @@ func PanicOnError(err error) {
 	}
 }
 
-// FileExists checks if the file exists.
-func FileExists(fileName string) bool {
-	if fileName == "no_init" {
-		return false
-	}
-	_, err := os.Stat(fileName)
-	if err != nil {
-		fmt.Printf("File %s does not exist\n", fileName)
-		return false
-	}
-	return true
+type Output struct {
+	lines int
+	words int
+	bytes int
+	chars int
 }
 
-// CountEntity is a common function for counting bytes, lines, and words.
-// It makes use of a `processor` function to process the buffer and count
-// the occurrence of the required entity. The steps were common for
-// counting bytes, lines, and words.
-func CountEntity(file *os.File, processor func([]byte) int) int {
-	// read the file in as a stream of bytes and process the read data
-	counter := 0
+func (op *Output) String() string {
+	var outStr []string
+	if *lineFlag {
+		outStr = append(outStr, fmt.Sprintf("%d", op.lines))
+	}
+	if *wordFlag {
+		outStr = append(outStr, fmt.Sprintf("%d", op.words))
+	}
+	if *charFlag {
+		outStr = append(outStr, fmt.Sprintf("%d", op.chars))
+	}
+	if *byteFlag {
+		outStr = append(outStr, fmt.Sprintf("%d", op.bytes))
+	}
+	return strings.Join(outStr, "\t")
+}
+
+// CountEntity counts the number of lines, words, bytes and characters from the reader.
+// It returns the Output struct.
+func CountEntity(reader *bufio.Reader) Output {
+	op := Output{}
+	var prevChar rune
 	for {
-		buffer := make([]byte, 512)
-		n, err := file.Read(buffer)
+		chRead, bytesRead, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				// process the buffer
-				counter += processor(buffer[:n])
-				return counter
+				if prevChar != rune(0) && !unicode.IsSpace(prevChar) {
+					op.words++
+				}
+				break
 			}
 			PanicOnError(err)
 		}
-		// process the buffer
-		counter += processor(buffer[:n])
+		op.bytes += bytesRead
+		op.chars++
+		if chRead == '\n' {
+			op.lines++
+		}
+		// if prev is not space and current is space, then it is a word
+		if !unicode.IsSpace(prevChar) && unicode.IsSpace(chRead) {
+			op.words++
+		}
+		prevChar = chRead
 	}
-}
-
-// countBytes counts the number of bytes in a file.
-func countBytes(file *os.File) int {
-	return CountEntity(file, func(buffer []byte) int {
-		return len(buffer)
-	})
-}
-
-// countLines counts the number of lines in a file.
-func countLines(file *os.File) int {
-	return CountEntity(file, func(buffer []byte) int {
-		count := 0
-		for i := 0; i < len(buffer); i++ {
-			if rune(buffer[i]) == '\n' {
-				count++
-			}
-		}
-		return count
-	})
-}
-
-// countWords counts the number of words in a file.
-func countWords(file *os.File) int {
-	processingWord := false
-	return CountEntity(file, func(buffer []byte) int {
-		count := 0
-		for i := 0; i < len(buffer); i++ {
-			if unicode.IsSpace(rune(buffer[i])) {
-				if processingWord {
-					count++
-				}
-				processingWord = false
-			} else {
-				processingWord = true
-			}
-		}
-		return count
-	})
+	return op
 }
 
 // GetTargetFile opens the required file for processing.
@@ -121,13 +98,20 @@ func GetTargetFile(fileName string) (file *os.File, err error) {
 	return nil, fmt.Errorf("no input file specified")
 }
 
+// FileExists checks if the file exists.
+func FileExists(fileName string) bool {
+	if fileName == "no_init" {
+		return false
+	}
+	_, err := os.Stat(fileName)
+	if err != nil {
+		fmt.Printf("File %s does not exist\n", fileName)
+		return false
+	}
+	return true
+}
+
 func main() {
-	/*
-		Flags
-			-c : count the number of bytes in a file
-			-l : count the number of lines in a file
-			-w : count the number of words in a file
-	*/
 	flag.Parse()
 
 	file, err := GetTargetFile(flag.Arg(0))
@@ -136,16 +120,15 @@ func main() {
 		PanicOnError(file.Close())
 	}()
 
-	answer := -1
-	if *byteFlag {
-		answer = countBytes(file)
-	} else if *lineFlag {
-		answer = countLines(file)
-	} else if *wordFlag {
-		answer = countWords(file)
-	} else {
-		fmt.Println("No flag specified")
-		os.Exit(1)
+	// If no option is set, use all options.
+	if !(*byteFlag || *lineFlag || *wordFlag || *charFlag) {
+		*byteFlag = true
+		*lineFlag = true
+		*wordFlag = true
+		*charFlag = true
 	}
-	fmt.Println(answer)
+
+	reader := bufio.NewReader(file)
+	op := CountEntity(reader)
+	fmt.Println(op.String())
 }

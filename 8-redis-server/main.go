@@ -1,7 +1,7 @@
 package main
 
 import (
-	"solid/open-source/coding-challenges/8-redis-server/server"
+	"coding-challenges/8-redis-server/server"
 )
 
 func PanicIf(err error) {
